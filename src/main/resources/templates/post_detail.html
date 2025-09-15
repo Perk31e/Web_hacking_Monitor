@@ -1,0 +1,159 @@
+<!-- templates/post_detail.html - 댓글/대댓글 기능 추가 -->
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${post.title} + ' - 반려동물 커뮤니티'">게시글 - 반려동물 커뮤니티</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .post-image { max-width: 100%; height: auto; margin: 15px 0; border-radius: 8px; }
+        .comment-item { border-left: 3px solid #007bff; padding-left: 15px; margin-bottom: 15px; background-color: #f8f9fa; padding: 15px; border-radius: 8px; }
+        .reply-item { border-left: 3px solid #28a745; padding-left: 15px; margin-left: 20px; margin-top: 10px; background-color: #f1f3f4; padding: 10px; border-radius: 5px; }
+        .reply-form { margin-left: 20px; margin-top: 10px; }
+        .toggle-reply { color: #007bff; cursor: pointer; text-decoration: underline; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container">
+            <a class="navbar-brand" href="/">🐾 PetCommunity</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/posts">게시판</a>
+                <div th:if="${session.user}">
+                    <a class="nav-link" href="/mypage">마이페이지</a>
+                    <a class="nav-link" href="/logout">로그아웃</a>
+                    <span class="navbar-text">안녕하세요, <span th:text="${session.user.nickname}"></span>님!</span>
+                </div>
+                <div th:unless="${session.user}">
+                    <a class="nav-link" href="/login">로그인</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h2 th:text="${post.title}">게시글 제목</h2>
+                            <a href="/posts" class="btn btn-outline-secondary">목록으로</a>
+                        </div>
+                        <div class="text-muted mt-2">
+                            작성자: <strong th:text="${post.user.nickname}"></strong> |
+                            조회수: <span th:text="${post.viewCount}"></span> |
+                            작성일: <span th:text="${#temporals.format(post.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${post.imagePath}" class="text-center">
+                            <img th:src="${post.imagePath}" class="post-image" alt="게시글 이미지">
+                        </div>
+
+                        <div th:text="${post.content}" style="white-space: pre-line; margin-top: 20px;">
+                            게시글 내용
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 댓글 섹션 -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5>댓글 (<span th:text="${#lists.size(comments)}">0</span>개)</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- 댓글 작성 폼 -->
+                        <div th:if="${session.user}" class="mb-4">
+                            <form th:action="@{/posts/{id}/comments(id=${post.id})}" method="post">
+                                <div class="mb-3">
+                                    <label for="comment" class="form-label">댓글 작성</label>
+                                    <textarea class="form-control" id="comment" name="content" rows="3" required placeholder="댓글을 입력하세요..."></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary">댓글 등록</button>
+                            </form>
+                            <hr>
+                        </div>
+
+                        <!-- 로그인하지 않은 사용자를 위한 안내 -->
+                        <div th:unless="${session.user}" class="alert alert-info">
+                            댓글을 작성하려면 <a href="/login">로그인</a>이 필요합니다.
+                        </div>
+
+                        <!-- 댓글 목록 -->
+                        <div th:if="${#lists.isEmpty(comments)}" class="text-center text-muted">
+                            첫 번째 댓글을 작성해보세요!
+                        </div>
+
+                        <!-- 최상위 댓글과 대댓글들 -->
+                        <div th:each="comment : ${comments}" class="comment-section">
+                            <!-- 최상위 댓글 -->
+                            <div class="comment-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong th:text="${comment.user.nickname}">작성자</strong>
+                                        <small class="text-muted ms-2" th:text="${#temporals.format(comment.createdAt, 'yyyy-MM-dd HH:mm')}">작성시간</small>
+                                    </div>
+                                </div>
+                                <p th:text="${comment.content}" class="mt-2 mb-2">댓글 내용</p>
+                                
+                                <!-- 답글 버튼 -->
+                                <div th:if="${session.user}">
+                                    <span class="toggle-reply" th:onclick="'toggleReplyForm(' + ${comment.id} + ')'">답글</span>
+                                    <span th:if="${#lists.size(comment.replies) > 0}" class="text-muted ms-2">
+                                        (<span th:text="${#lists.size(comment.replies)}">0</span>개의 답글)
+                                    </span>
+                                </div>
+
+                                <!-- 답글 작성 폼 (기본적으로 숨김) -->
+                                <div th:id="'reply-form-' + ${comment.id}" class="reply-form" style="display: none;">
+                                    <form th:action="@{/posts/{postId}/comments/{commentId}/reply(postId=${post.id}, commentId=${comment.id})}" method="post">
+                                        <div class="mb-2">
+                                            <textarea class="form-control" name="content" rows="2" required placeholder="답글을 입력하세요..."></textarea>
+                                        </div>
+                                        <button type="submit" class="btn btn-sm btn-success">답글 등록</button>
+                                        <button type="button" class="btn btn-sm btn-secondary ms-1" th:onclick="'toggleReplyForm(' + ${comment.id} + ')'">취소</button>
+                                    </form>
+                                </div>
+
+                                <!-- 대댓글들 -->
+                                <div th:if="${#lists.size(comment.replies) > 0}" class="replies-section mt-3">
+                                    <div th:each="reply : ${comment.replies}" class="reply-item">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <strong th:text="${reply.user.nickname}">답글 작성자</strong>
+                                                <small class="text-muted ms-2" th:text="${#temporals.format(reply.createdAt, 'yyyy-MM-dd HH:mm')}">답글 작성시간</small>
+                                            </div>
+                                        </div>
+                                        <p th:text="${reply.content}" class="mt-2 mb-0">답글 내용</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function toggleReplyForm(commentId) {
+            var replyForm = document.getElementById('reply-form-' + commentId);
+            if (replyForm.style.display === 'none' || replyForm.style.display === '') {
+                replyForm.style.display = 'block';
+                // 다른 열린 답글 폼들 닫기
+                var allReplyForms = document.querySelectorAll('[id^="reply-form-"]');
+                allReplyForms.forEach(function(form) {
+                    if (form.id !== 'reply-form-' + commentId) {
+                        form.style.display = 'none';
+                    }
+                });
+            } else {
+                replyForm.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

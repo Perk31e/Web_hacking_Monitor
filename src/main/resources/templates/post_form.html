@@ -1,0 +1,178 @@
+<!-- templates/post_form.html - 파일 업로드 취약점이 명확하게 드러나는 버전 -->
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>글 쓰기 - 반려동물 커뮤니티</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .upload-info {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        .vulnerability-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container">
+            <a class="navbar-brand" href="/">🐾 PetCommunity</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/posts">게시판</a>
+                <a class="nav-link" href="/mypage">마이페이지</a>
+                <a class="nav-link" href="/logout">로그아웃</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>새 게시글 작성</h3>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+
+                        <!-- 취약점: enctype="multipart/form-data"로 파일 업로드 허용 -->
+                        <form method="post" action="/posts" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="title" class="form-label">제목 *</label>
+                                <input type="text" class="form-control" id="title" name="title" required 
+                                       placeholder="게시글 제목을 입력하세요">
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="content" class="form-label">내용 *</label>
+                                <textarea class="form-control" id="content" name="content" rows="10" required
+                                          placeholder="반려동물에 대한 이야기를 자유롭게 작성해주세요..."></textarea>
+                            </div>
+
+                            <!-- 취약점이 명확하게 드러나는 파일 업로드 섹션 -->
+                            <div class="mb-3">
+                                <label for="image" class="form-label">파일 업로드</label>
+                                <!-- 취약점 1: accept 속성 없음 - 모든 파일 타입 허용 -->
+                                <input type="file" class="form-control" id="image" name="image">
+                                
+                                <div class="upload-info">
+                                    <h6>📁 파일 업로드 정보</h6>
+                                    <ul class="mb-0">
+                                        <li><strong>허용 크기:</strong> 최대 100MB</li>
+                                        <li><strong>파일 타입:</strong> 제한 없음 (모든 확장자 허용)</li>
+                                        <li><strong>저장 위치:</strong> /static/uploads/ (웹 접근 가능)</li>
+                                        <li><strong>파일명:</strong> UUID + 원본 확장자</li>
+                                    </ul>
+                                </div>
+
+                                <!-- 개발자를 위한 취약점 힌트 (실제 운영에서는 제거해야 함) -->
+                                <div class="vulnerability-warning">
+                                    <strong>⚠️ 보안 테스트용 정보:</strong><br>
+                                    • 파일 확장자 검증 없음<br>
+                                    • MIME 타입 검증 우회 가능<br>
+                                    • 웹 디렉토리에 직접 저장<br>
+                                    • 업로드된 파일 실행 권한 제거 안함
+                                </div>
+
+                                <div class="form-text">
+                                    반려동물 사진이나 관련 파일을 업로드해주세요. 
+                                    <br><small class="text-muted">업로드된 파일은 /uploads/ 경로에서 직접 접근 가능합니다.</small>
+                                </div>
+                            </div>
+
+                            <!-- 파일 업로드 미리보기 -->
+                            <div id="imagePreview" style="display: none;" class="mb-3">
+                                <label class="form-label">미리보기</label>
+                                <div>
+                                    <img id="previewImg" style="max-width: 300px; max-height: 200px;" class="img-thumbnail">
+                                    <p id="fileInfo" class="text-muted mt-2"></p>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-lg">게시글 등록</button>
+                            <a href="/posts" class="btn btn-secondary btn-lg ms-2">취소</a>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 파일 업로드 가이드 -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5>📋 파일 업로드 가이드</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>✅ 권장 파일</h6>
+                                <ul>
+                                    <li>JPG, PNG, GIF (이미지)</li>
+                                    <li>MP4, AVI (동영상)</li>
+                                    <li>PDF (문서)</li>
+                                    <li>TXT (텍스트)</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>⚠️ 업로드 후 접근</h6>
+                                <ul>
+                                    <li>업로드 경로: <code>/uploads/파일명</code></li>
+                                    <li>예시: <code>/uploads/abc123.jpg</code></li>
+                                    <li>브라우저에서 직접 접근 가능</li>
+                                    <li>파일 실행 권한 유지됨</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 파일 선택 시 미리보기 및 정보 표시
+        document.getElementById('image').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const preview = document.getElementById('imagePreview');
+            const previewImg = document.getElementById('previewImg');
+            const fileInfo = document.getElementById('fileInfo');
+
+            if (file) {
+                // 파일 정보 표시
+                const fileSize = (file.size / 1024 / 1024).toFixed(2); // MB 단위
+                fileInfo.innerHTML = `
+                    <strong>파일명:</strong> ${file.name}<br>
+                    <strong>크기:</strong> ${fileSize} MB<br>
+                    <strong>타입:</strong> ${file.type || '알 수 없음'}<br>
+                    <strong>마지막 수정:</strong> ${new Date(file.lastModified).toLocaleString()}
+                `;
+
+                // 이미지 파일인 경우 미리보기 표시
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        previewImg.src = e.target.result;
+                        previewImg.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    previewImg.style.display = 'none';
+                }
+
+                preview.style.display = 'block';
+            } else {
+                preview.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

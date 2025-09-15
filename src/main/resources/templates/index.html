@@ -1,0 +1,167 @@
+<!-- templates/index.html - 반응형 햄버거 메뉴 적용 -->
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>반려동물 커뮤니티 - 홈</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* 브랜드 로고 스타일링 */
+        .navbar-brand {
+            font-weight: bold;
+            color: #ff6b6b !important;
+            font-size: 1.5rem;
+        }
+
+        /* 햄버거 메뉴 버튼 스타일링 */
+        .navbar-toggler {
+            border: none;
+            padding: 4px 8px;
+        }
+
+        .navbar-toggler:focus {
+            box-shadow: none;
+        }
+
+        /* 네비게이션 링크 스타일링 */
+        .nav-link {
+            padding: 0.5rem 1rem;
+            transition: color 0.3s ease;
+        }
+
+        .nav-link:hover {
+            color: #ff6b6b !important;
+        }
+
+        /* 사용자 정보 텍스트 스타일링 */
+        .navbar-text {
+            color: #6c757d !important;
+            font-size: 0.9rem;
+        }
+
+        /* 작은 화면에서의 메뉴 스타일링 */
+        @media (max-width: 991.98px) {
+            .navbar-collapse {
+                margin-top: 1rem;
+                padding-top: 1rem;
+                border-top: 1px solid #dee2e6;
+            }
+            
+            .navbar-nav .nav-item {
+                margin-bottom: 0.5rem;
+            }
+            
+            .navbar-text {
+                margin-top: 0.5rem;
+                padding: 0.5rem 1rem;
+                background-color: #f8f9fa;
+                border-radius: 0.25rem;
+            }
+        }
+
+        /* 매우 작은 화면 (모바일) 대응 */
+        @media (max-width: 576px) {
+            .navbar-brand {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 반응형 네비게이션 바 -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container">
+            <!-- 브랜드 로고 -->
+            <a class="navbar-brand" href="/">🐾 PetCommunity</a>
+            
+            <!-- 햄버거 메뉴 토글 버튼 (작은 화면에서만 표시) -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
+                    aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <!-- 접을 수 있는 메뉴 영역 -->
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <!-- 모든 메뉴를 오른쪽으로 정렬 -->
+                <ul class="navbar-nav ms-auto">
+                    <!-- 게시판 메뉴 -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="/posts">게시판</a>
+                    </li>
+                    
+                    <!-- 로그인된 사용자용 메뉴 -->
+                    <li class="nav-item" th:if="${session.user}">
+                        <a class="nav-link" href="/mypage">마이페이지</a>
+                    </li>
+                    <!-- 관리자 전용 메뉴 -->
+                    <li class="nav-item" th:if="${session.user != null and session.user.role == 'ADMIN'}">
+                        <a class="nav-link" href="/admin">관리자</a>
+                    </li>
+                    <li class="nav-item" th:if="${session.user}">
+                        <a class="nav-link" href="/logout">로그아웃</a>
+                    </li>
+                    <!-- 사용자 정보 표시 -->
+                    <li class="nav-item" th:if="${session.user}">
+                        <span class="navbar-text">
+                            안녕하세요, <span th:text="${session.user.nickname}"></span>님!
+                        </span>
+                    </li>
+                    
+                    <!-- 로그인하지 않은 사용자용 메뉴 -->
+                    <li class="nav-item" th:unless="${session.user}">
+                        <a class="nav-link" href="/login">로그인</a>
+                    </li>
+                    <li class="nav-item" th:unless="${session.user}">
+                        <a class="nav-link" href="/register">회원가입</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 메인 컨텐츠 -->
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8 text-center">
+                <h1 class="display-4 mb-4">🐾 반려동물 커뮤니티에 오신 것을 환영합니다!</h1>
+                <p class="lead">우리 소중한 반려동물들의 이야기를 함께 나누세요</p>
+                <div class="mt-4">
+                    <a href="/posts" class="btn btn-primary btn-lg me-3">게시판 둘러보기</a>
+                    <a th:unless="${session.user}" href="/register" class="btn btn-outline-primary btn-lg">회원가입하기</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-5">
+            <div class="col-md-4 text-center">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">🐕 강아지</h5>
+                        <p class="card-text">귀여운 강아지들의 일상을 공유해보세요</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">🐱 고양이</h5>
+                        <p class="card-text">고양이들의 특별한 순간들을 담아보세요</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">🐹 기타</h5>
+                        <p class="card-text">다양한 반려동물들의 이야기를 들려주세요</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
