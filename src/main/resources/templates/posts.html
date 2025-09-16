@@ -35,7 +35,32 @@
     <div class="container mt-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2>🐾 반려동물 게시판</h2>
-            <a th:if="${session.user}" href="/posts/new" class="btn btn-primary">글 쓰기</a>
+            <div class="d-flex align-items-center">
+                <!-- 검색 폼 추가 -->
+                <form method="get" action="/posts" class="me-3">
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="search" 
+                            th:value="${search}" placeholder="게시글 검색..." style="width: 200px;">
+                        <button class="btn btn-outline-primary" type="submit">검색</button>
+                        <!-- 검색 초기화 버튼 -->
+                        <a th:if="${search}" href="/posts" class="btn btn-outline-secondary ms-1">전체</a>
+                    </div>
+                </form>
+                <a th:if="${session.user}" href="/posts/new" class="btn btn-primary">글 쓰기</a>
+            </div>
+        </div>
+
+        <!-- 검색 결과 메시지 -->
+        <div th:if="${searchMessage}" class="alert alert-info">
+            <span th:text="${searchMessage}"></span>
+        </div>
+
+        <!-- 현재 검색 중임을 표시 -->
+        <div th:if="${search}" class="mb-3">
+            <small class="text-muted">
+                검색어: "<strong th:text="${search}"></strong>" | 
+                <a href="/posts" class="text-decoration-none">전체 게시글 보기</a>
+            </small>
         </div>
 
         <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>

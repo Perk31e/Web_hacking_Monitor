@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,11 +36,22 @@ public class PostController {
     private static final String UPLOAD_DIR = "src/main/resources/static/uploads/";
 
     @GetMapping("/posts")
-    public String posts(Model model, HttpSession session) {
+    public String posts(@RequestParam(required = false) String search, 
+                    Model model, HttpSession session) {
         try (Connection conn = dataSource.getConnection()) {
-            String sql = "SELECT p.*, u.nickname, u.name FROM posts p " +
-                        "LEFT JOIN users u ON p.user_id = u.id " +
-                        "ORDER BY p.created_at DESC";
+            String sql;
+            if (search != null && !search.trim().isEmpty()) {
+                // JOIN을 사용하여 사용자 정보도 함께 조회
+                sql = "SELECT p.id, p.title, p.content, p.user_id, p.view_count, p.created_at, p.image_path, u.nickname, u.name " +
+                    "FROM posts p LEFT JOIN users u ON p.user_id = u.id " +
+                    "WHERE p.title LIKE '%" + search + "%' OR p.content LIKE '%" + search + "%'";
+            } else {
+                sql = "SELECT p.id, p.title, p.content, p.user_id, p.view_count, p.created_at, p.image_path, u.nickname, u.name " +
+                    "FROM posts p LEFT JOIN users u ON p.user_id = u.id " +
+                    "ORDER BY p.created_at DESC";
+            }
+            
+            System.out.println("검색 SQL: " + sql);
 
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(sql);
@@ -50,23 +62,50 @@ public class PostController {
                 post.setId(rs.getLong("id"));
                 post.setTitle(rs.getString("title"));
                 post.setContent(rs.getString("content"));
-                post.setImagePath(rs.getString("image_path"));
+                
+                // 안전한 방식으로 image_path 처리
+                try {
+                    post.setImagePath(rs.getString("image_path"));
+                } catch (SQLException e) {
+                    post.setImagePath(null); // 컬럼이 없으면 null로 설정
+                }
+                
                 post.setViewCount(rs.getInt("view_count"));
-                post.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
+                
+                // created_at 처리
+                try {
+                    Timestamp createdAt = rs.getTimestamp("created_at");
+                    if (createdAt != null) {
+                        post.setCreatedAt(createdAt.toLocalDateTime());
+                    } else {
+                        post.setCreatedAt(LocalDateTime.now());
+                    }
+                } catch (SQLException e) {
+                    post.setCreatedAt(LocalDateTime.now());
+                }
 
+                // User 정보는 기본값으로 설정
                 User user = new User();
                 user.setNickname(rs.getString("nickname"));
                 user.setName(rs.getString("name"));
                 post.setUser(user);
-
+                
                 posts.add(post);
             }
 
             model.addAttribute("posts", posts);
+            model.addAttribute("search", search);
+            
+            if (search != null && !search.trim().isEmpty() && posts.isEmpty()) {
+                model.addAttribute("searchMessage", "'" + search + "'에 대한 검색 결과가 없습니다.");
+            }
+            
             return "posts";
 
         } catch (SQLException e) {
-            model.addAttribute("error", "게시글을 불러오는 중 오류가 발생했습니다.");
+            System.out.println("게시글 조회/검색 에러: " + e.getMessage());
+            e.printStackTrace();
+            model.addAttribute("error", "게시글을 불러오는 중 오류가 발생했습니다: " + e.getMessage());
             return "posts";
         }
     }

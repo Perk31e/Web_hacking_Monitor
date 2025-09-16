@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpSession;
 import javax.sql.DataSource;
 import java.sql.*;
+import java.time.LocalDateTime;
 
 @Controller
 public class UserController {
@@ -59,17 +60,27 @@ public class UserController {
 
     @PostMapping("/login")
     public String login(@RequestParam String email,
-                       @RequestParam String password,
-                       HttpSession session, Model model) {
+                    @RequestParam String password,
+                    HttpSession session, Model model) {
         try (Connection conn = dataSource.getConnection()) {
-            // 취약점: SQL Injection - WHERE 절에 직접 파라미터 삽입
-            // 수정방법: PreparedStatement의 ? 플레이스홀더 사용해야 함
+            // SQL 쿼리 생성
             String sql = "SELECT * FROM users WHERE email = '" + email + "' AND password = '" + password + "'";
+            
+            // 디버그: 실제 실행되는 SQL 출력
+            System.out.println("=== SQL INJECTION DEBUG ===");
+            System.out.println("입력된 이메일: " + email);
+            System.out.println("입력된 비밀번호: " + password);
+            System.out.println("실행되는 SQL: " + sql);
+            System.out.println("============================");
 
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(sql);
 
             if (rs.next()) {
+                // 결과 디버그
+                System.out.println("로그인 성공! 사용자 ID: " + rs.getLong("id"));
+                System.out.println("사용자 이메일: " + rs.getString("email"));
+                
                 User user = new User();
                 user.setId(rs.getLong("id"));
                 user.setName(rs.getString("name"));
@@ -80,11 +91,13 @@ public class UserController {
                 session.setAttribute("user", user);
                 return "redirect:/posts";
             } else {
+                System.out.println("쿼리 결과 없음 - 로그인 실패");
                 model.addAttribute("error", "이메일 또는 비밀번호가 잘못되었습니다.");
                 return "login";
             }
 
         } catch (SQLException e) {
+            System.out.println("SQL 에러 발생: " + e.getMessage());
             model.addAttribute("error", "로그인 중 오류가 발생했습니다: " + e.getMessage());
             return "login";
         }
@@ -152,7 +165,7 @@ public class UserController {
 
     @GetMapping("/admin/users")
     public String searchUsers(@RequestParam(required = false) String search,
-                             HttpSession session, Model model) {
+                            HttpSession session, Model model) {
         User user = (User) session.getAttribute("user");
         if (user == null || !"ADMIN".equals(user.getRole())) {
             return "redirect:/login";
@@ -161,12 +174,14 @@ public class UserController {
         try (Connection conn = dataSource.getConnection()) {
             String sql;
             if (search != null && !search.trim().isEmpty()) {
-                // 취약점: SQL Injection - LIKE 구문에 직접 파라미터 삽입
-                // 수정방법: PreparedStatement 사용해야 함
+                // SQL Injection 취약점
                 sql = "SELECT * FROM users WHERE name LIKE '%" + search + "%' OR email LIKE '%" + search + "%'";
             } else {
                 sql = "SELECT * FROM users ORDER BY created_at DESC";
             }
+
+            // 디버그 출력
+            System.out.println("Admin search SQL: " + sql);
 
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(sql);
@@ -179,7 +194,15 @@ public class UserController {
                 u.setNickname(rs.getString("nickname"));
                 u.setEmail(rs.getString("email"));
                 u.setRole(rs.getString("role"));
-                u.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
+                
+                // null 체크 추가
+                Timestamp createdAt = rs.getTimestamp("created_at");
+                if (createdAt != null) {
+                    u.setCreatedAt(createdAt.toLocalDateTime());
+                } else {
+                    u.setCreatedAt(LocalDateTime.now()); // 기본값 설정
+                }
+                
                 users.add(u);
             }
 
@@ -188,9 +211,10 @@ public class UserController {
             return "admin_users";
 
         } catch (SQLException e) {
+            System.out.println("사용자 검색 에러: " + e.getMessage());
+            e.printStackTrace();
             model.addAttribute("error", "사용자 검색 중 오류가 발생했습니다: " + e.getMessage());
             return "admin";
         }
     }
-
 }
