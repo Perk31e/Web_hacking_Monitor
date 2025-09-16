@@ -135,29 +135,47 @@ public class PostController {
             try {
                 // 취약점 1: 파일 확장자 검증 없음 - 모든 파일 타입 업로드 가능
                 String originalFilename = file.getOriginalFilename();
-                
-                // 취약점 2: MIME 타입 체크를 하지만 쉽게 우회 가능
-                String contentType = file.getContentType();
-                System.out.println("업로드된 파일 MIME 타입: " + contentType);
-                
-                // 취약점 3: 파일명 검증 없음 - 경로 조작 공격 가능
-                // originalFilename을 그대로 사용하지 않고 UUID를 사용하지만 여전히 취약
-                String fileExtension = "";
-                if (originalFilename != null && originalFilename.contains(".")) {
-                    fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
+                if (originalFilename == null || originalFilename.isEmpty()) {
+                    model.addAttribute("error", "파일 이름을 확인할 수 없습니다.");
+                    return "post_form";
                 }
-                String fileName = UUID.randomUUID().toString() + fileExtension;
 
-                // 취약점 4: 업로드 디렉토리가 웹 접근 가능한 경로
+                // 경로가 포함된 경우 대비하여 순수 파일명만 추출
+                String cleanFileName = Paths.get(originalFilename).getFileName().toString();
+
                 File uploadDir = new File(UPLOAD_DIR);
                 if (!uploadDir.exists()) {
                     uploadDir.mkdirs();
                 }
 
-                Path filePath = Paths.get(UPLOAD_DIR + fileName);
-                Files.write(filePath, file.getBytes());
+                // 기본 파일명 설정 (원본 이름 사용)
+                String fileName = cleanFileName;
+                File destFile = new File(uploadDir, fileName);
+                int count = 1;
 
-                imagePath = "/uploads/" + fileName;  // 웹에서 접근 가능한 경로
+                // 파일명이 중복되면 뒤에 번호를 붙여 고유한 이름 생성
+                if (destFile.exists()) {
+                    // 파일명과 확장자 분리
+                    String baseName;
+                    String ext = "";
+                    int dotIndex = cleanFileName.lastIndexOf('.');
+                    if (dotIndex != -1) {
+                        baseName = cleanFileName.substring(0, dotIndex);
+                        ext = cleanFileName.substring(dotIndex);  // ".png", ".txt" 등의 확장자 포함
+                    } else {
+                        baseName = cleanFileName;
+                    }
+                    // 중복되는 동안 숫자 붙여서 파일명 변경
+                    while (destFile.exists()) {
+                        fileName = baseName + "_" + count + ext;
+                        destFile = new File(uploadDir, fileName);
+                        count++;
+                    }
+                }
+
+                // 파일 저장 (예: Files.write 또는 transferTo 사용)
+                Files.write(destFile.toPath(), file.getBytes());
+                imagePath = "/uploads/" + fileName;
 
                 // 취약점 5: 업로드된 파일의 실행 권한 제거하지 않음
                 // 웹쉘이 업로드되면 실행 가능
