@@ -5,6 +5,21 @@ spring:
     password: Pa$$w0rd
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+  # JSP 뷰 리졸버 설정 추가
+  mvc:
+    view:
+      prefix: /WEB-INF/jsp/
+      suffix: .jsp
+
+  # 정적 리소스 매핑 수정 - 두 경로 모두 지원
+  web:
+    resources:
+      static-locations: 
+        - classpath:/static/
+        - classpath:/public/
+        - file:src/main/webapp/
+        - file:src/main/resources/static/
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -25,7 +40,12 @@ spring:
 
 server:
   port: 8080
-
+  servlet:
+    # JSP를 위한 추가 설정
+    jsp:
+      init-parameters:
+        development: true
+        
 logging:
   level:
     '[org.springframework.web]': DEBUG

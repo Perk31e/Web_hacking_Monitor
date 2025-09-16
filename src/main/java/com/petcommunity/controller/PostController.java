@@ -33,7 +33,7 @@ public class PostController {
     private DataSource dataSource;
 
     // 취약점: 하드코딩된 업로드 경로, 웹 접근 가능한 디렉토리
-    private static final String UPLOAD_DIR = "src/main/resources/static/uploads/";
+    private static final String UPLOAD_DIR = "src/main/webapp/uploads/";
 
     @GetMapping("/posts")
     public String posts(@RequestParam(required = false) String search, 
