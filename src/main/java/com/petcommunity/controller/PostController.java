@@ -141,48 +141,53 @@ public class PostController {
             try {
                 // 취약점 1: 파일 확장자 검증 없음 - 모든 파일 타입 업로드 가능
                 String originalFilename = file.getOriginalFilename();
+                
+                // 취약점 2: MIME 타입 체크를 하지만 쉽게 우회 가능
+                String contentType = file.getContentType();
+                System.out.println("업로드된 파일 MIME 타입: " + contentType);
+                
                 if (originalFilename == null || originalFilename.isEmpty()) {
                     model.addAttribute("error", "파일 이름을 확인할 수 없습니다.");
                     return "post_form";
                 }
 
-                // 경로가 포함된 경우 대비하여 순수 파일명만 추출
-                String cleanFileName = Paths.get(originalFilename).getFileName().toString();
+                // 원본 파일명 그대로 사용 (더 취약함!)
+                String fileName = originalFilename;
 
+                // 취약점 4: 업로드 디렉토리가 웹 접근 가능한 경로
                 File uploadDir = new File(UPLOAD_DIR);
                 if (!uploadDir.exists()) {
                     uploadDir.mkdirs();
                 }
 
-                // 기본 파일명 설정 (원본 이름 사용)
-                String fileName = cleanFileName;
+                // 파일명 중복 처리 (선택사항)
                 File destFile = new File(uploadDir, fileName);
                 int count = 1;
-
-                // 파일명이 중복되면 뒤에 번호를 붙여 고유한 이름 생성
-                if (destFile.exists()) {
-                    // 파일명과 확장자 분리
-                    String baseName;
-                    String ext = "";
-                    int dotIndex = cleanFileName.lastIndexOf('.');
-                    if (dotIndex != -1) {
-                        baseName = cleanFileName.substring(0, dotIndex);
-                        ext = cleanFileName.substring(dotIndex);  // ".png", ".txt" 등의 확장자 포함
-                    } else {
-                        baseName = cleanFileName;
-                    }
-                    // 중복되는 동안 숫자 붙여서 파일명 변경
-                    while (destFile.exists()) {
-                        fileName = baseName + "_" + count + ext;
-                        destFile = new File(uploadDir, fileName);
-                        count++;
-                    }
+                String baseName = fileName;
+                String extension = "";
+                
+                // 확장자 분리
+                int dotIndex = fileName.lastIndexOf('.');
+                if (dotIndex != -1) {
+                    baseName = fileName.substring(0, dotIndex);
+                    extension = fileName.substring(dotIndex);
+                }
+                
+                // 같은 이름의 파일이 있으면 번호 붙이기
+                while (destFile.exists()) {
+                    fileName = baseName + "_" + count + extension;
+                    destFile = new File(uploadDir, fileName);
+                    count++;
                 }
 
-                // 파일 저장 (예: Files.write 또는 transferTo 사용)
-                Files.write(destFile.toPath(), file.getBytes());
-                imagePath = "/uploads/" + fileName;
+                Path filePath = Paths.get(UPLOAD_DIR + fileName);
+                Files.write(filePath, file.getBytes());
 
+                imagePath = "/uploads/" + fileName;  // 웹에서 접근 가능한 경로
+
+                System.out.println("파일 업로드 완료: " + fileName);
+                System.out.println("저장 경로: " + filePath);
+                
                 // 취약점 5: 업로드된 파일의 실행 권한 제거하지 않음
                 // 웹쉘이 업로드되면 실행 가능
 
@@ -353,39 +358,5 @@ public class PostController {
         }
 
         return "redirect:/posts/" + postId;
-    }
-
-    @GetMapping("/uploads/{filename:.+}")
-    public ResponseEntity<Resource> serveUpload(@PathVariable String filename) {
-        try {
-            Path file = Paths.get(UPLOAD_DIR).resolve(filename).normalize();
-            Resource resource = new UrlResource(file.toUri());
-            if (!resource.exists() || !resource.isReadable()) {
-                return ResponseEntity.notFound().build();
-            }
-
-            // 파일의 MIME 타입 시도 판별
-            String contentType = Files.probeContentType(file);
-            if (contentType == null) {
-                contentType = "application/octet-stream";
-            }
-
-            // 텍스트 계열이면 charset=UTF-8 붙이기
-            if (contentType.startsWith("text/") || contentType.equals("application/javascript")
-                    || contentType.equals("application/json") || contentType.equals("application/xml")) {
-                contentType = contentType + "; charset=UTF-8";
-            }
-
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_TYPE, contentType)
-                    // 필요하면 Content-Disposition 조정 (inline / attachment)
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
-                    .body(resource);
-
-        } catch (MalformedURLException e) {
-            return ResponseEntity.internalServerError().build();
-        } catch (IOException e) {
-            return ResponseEntity.internalServerError().build();
-        }
     }
 }
