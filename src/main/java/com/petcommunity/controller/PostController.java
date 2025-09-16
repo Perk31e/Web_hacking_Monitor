@@ -26,6 +26,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import java.net.MalformedURLException;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
 @Controller
 public class PostController {
 
@@ -347,5 +354,39 @@ public class PostController {
         }
 
         return "redirect:/posts/" + postId;
+    }
+
+    @GetMapping("/uploads/{filename:.+}")
+    public ResponseEntity<Resource> serveUpload(@PathVariable String filename) {
+        try {
+            Path file = Paths.get(UPLOAD_DIR).resolve(filename).normalize();
+            Resource resource = new UrlResource(file.toUri());
+            if (!resource.exists() || !resource.isReadable()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            // 파일의 MIME 타입 시도 판별
+            String contentType = Files.probeContentType(file);
+            if (contentType == null) {
+                contentType = "application/octet-stream";
+            }
+
+            // 텍스트 계열이면 charset=UTF-8 붙이기
+            if (contentType.startsWith("text/") || contentType.equals("application/javascript")
+                    || contentType.equals("application/json") || contentType.equals("application/xml")) {
+                contentType = contentType + "; charset=UTF-8";
+            }
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, contentType)
+                    // 필요하면 Content-Disposition 조정 (inline / attachment)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                    .body(resource);
+
+        } catch (MalformedURLException e) {
+            return ResponseEntity.internalServerError().build();
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }
