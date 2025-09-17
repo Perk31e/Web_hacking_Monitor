@@ -22,13 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import java.net.MalformedURLException;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
 @Controller
 public class PostController {
 
