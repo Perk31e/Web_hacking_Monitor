@@ -1,6 +1,3 @@
-// ================================
-// PostController - 개선된 버전 (댓글/대댓글 기능 추가)
-// ================================
 package com.petcommunity.controller;
 
 import com.petcommunity.entity.User;
