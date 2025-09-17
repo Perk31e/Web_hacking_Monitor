@@ -257,14 +257,187 @@ private static final String UPLOAD_DIR = "/secure/uploads/";
 3. **Permission denied**: Check file upload directory permissions
 4. **Database connection**: Verify MySQL service is running
 
-#### Debug Information
-The application includes verbose logging and error messages for educational purposes. In production, these should be removed.
 
 
-## 📄 License
+-----------Prepare WAF(Web Application Firewall)-----------
 
-This project is licensed under the Eclipse Public License v2.0 - see the [LICENSE](LICENSE) file for details.
+1. IIS 설치 및 기본 설정
+# IIS 및 필요 기능 활성화
+```
+Enable-WindowsOptionalFeature -Online -FeatureName IIS-WebServerRole
+Enable-WindowsOptionalFeature -Online -FeatureName IIS-HttpLogging
+Enable-WindowsOptionalFeature -Online -FeatureName IIS-RequestFiltering
+Enable-WindowsOptionalFeature -Online -FeatureName IIS-HttpRedirect
+```
 
----
+# 서비스 시작 확인
+Get-Service W3SVC | Start-Service
 
-**Remember: This is an intentionally vulnerable application. Never deploy in production!**
+2. ModSecurity 2.9.1 IIS 모듈 설치
+ModSecurity 2.9.1 설치 파일을 실행한 후, IIS 관리자에서 모듈 등록확인:
+
+```
+# 또는 PowerShell로 모듈 확인
+Get-WebGlobalModule | Where-Object {$_.name -like "*mod*"}
+```
+
+3. ModSecurity 설정 파일 생성=
+
+*로그 디렉토리 생성*
+```
+# 로그 디렉토리 생성
+New-Item -ItemType Directory -Force -Path "C:\inetpub\logs\ModSecurity"
+```
+
+*ModSecurity 설정 파일들을 ModSecurity 설치 디렉토리에 생성합니다.*
+```
+cd "C:\Program Files\ModSecurity IIS"
+
+# 설정 파일들 생성
+notepad modsecurity.conf
+notepad custom_sqli_rules.conf  
+notepad custom_upload_rules.conf
+```
+
+
+*modsecurity.conf*
+```
+# ModSecurity 기본 설정
+SecRuleEngine On
+SecRequestBodyAccess On
+SecResponseBodyAccess On
+SecRequestBodyLimit 13107200
+SecRequestBodyNoFilesLimit 131072
+SecRequestBodyInMemoryLimit 131072
+SecRequestBodyLimitAction Reject
+SecPcreMatchLimit 1000
+SecPcreMatchLimitRecursion 1000
+
+# 로그 설정
+SecAuditEngine RelevantOnly
+SecAuditLogRelevantStatus "^(?:5|4(?!04))"
+SecAuditLogParts ABDEFHIJZ
+SecAuditLogType Serial
+SecAuditLog C:\inetpub\logs\ModSecurity\modsec_audit.log
+SecDebugLog C:\inetpub\logs\ModSecurity\modsec_debug.log
+SecDebugLogLevel 3
+```
+
+*custom_sqli_rules.conf 내용*
+```
+# SQL Injection 탐지 규칙
+SecRule ARGS "@detectSQLi" \
+    "id:990001,\
+    phase:2,\
+    block,\
+    msg:'SQL Injection Attack Detected via libinjection',\
+    logdata:'Matched Data: %{MATCHED_VAR} found within %{MATCHED_VAR_NAME}',\
+    tag:'attack-sqli',\
+    tag:'OWASP_CRS/WEB_ATTACK/SQL_INJECTION',\
+    severity:'CRITICAL',\
+    setvar:'tx.sql_injection_score=+%{tx.critical_anomaly_score}',\
+    setvar:'tx.anomaly_score=+%{tx.critical_anomaly_score}'"
+
+# 일반적인 SQL Injection 패턴
+SecRule ARGS "@rx (?i:(?:[\s'\"`´''""]+)?(?:s(?:elect|ys(?:tem|objects|dmin))|d(?:elete|rop|ump)|i(?:n(?:sert|to|ner)|nformation_schema)|u(?:nion|pdate)|c(?:reate|ast|har)|m(?:eta|ysql)|l(?:oad_file|ike)|b(?:ulk|enchmark)|e(?:scape|xec(?:ute)?)|f(?:rom|etch)|w(?:here|aitfor)|o(?:utfile|rder)|g(?:rant|roup_concat)|having|into|limit|offset|table|database|column)" \
+    "id:990002,\
+    phase:2,\
+    block,\
+    msg:'SQL Injection Attack: Common DB Names Detected',\
+    logdata:'Matched Data: %{MATCHED_VAR} found within %{MATCHED_VAR_NAME}',\
+    tag:'attack-sqli',\
+    severity:'CRITICAL'"
+
+# OR 기반 우회 시도
+SecRule ARGS "@rx (?i:(?:\W|^)(?:or|and)(?:\s+|\+)(?:\d+(?:\s*=\s*\d+)?|\w+(?:\s*=\s*\w+)?|'[^']*'(?:\s*=\s*'[^']*')?))(?:\s*(?:--|\#|\/\*).*)?$" \
+    "id:990003,\
+    phase:2,\
+    block,\
+    msg:'SQL Injection Attack: OR/AND Boolean Bypass Attempt',\
+    logdata:'Matched Data: %{MATCHED_VAR} found within %{MATCHED_VAR_NAME}',\
+    tag:'attack-sqli',\
+    severity:'HIGH'"
+```
+
+
+*custom_upload_rules.conf*
+```
+# 위험한 파일 확장자 업로드 차단
+SecRule FILES_NAMES "@rx \.(jsp|jspx|php|php3|php4|php5|phtml|asp|aspx|ascx|cfm|cfc|pl|bat|exe|dll|sh|py)$" \
+    "id:990101,\
+    phase:2,\
+    block,\
+    msg:'Dangerous File Upload: Executable file extension detected',\
+    logdata:'Attempted upload of file: %{MATCHED_VAR}',\
+    tag:'attack-file-upload',\
+    severity:'HIGH'"
+
+# 파일 크기 제한
+SecRule FILES_COMBINED_SIZE "@gt 52428800" \
+    "id:990102,\
+    phase:2,\
+    block,\
+    msg:'File upload too large',\
+    tag:'attack-file-upload',\
+    severity:'NOTICE'"
+
+# 파일 내용 기반 웹쉘 탐지
+SecRule FILES_TMPNAMES "@inspectFile /path/to/av_scanner.exe" \
+    "id:990103,\
+    phase:2,\
+    block,\
+    msg:'Malicious file upload detected',\
+    tag:'attack-file-upload',\
+    severity:'CRITICAL'"
+
+# JSP/PHP 웹쉘 패턴 탐지
+SecRule FILES "@rx (?i:Runtime\.getRuntime\(\)\.exec|ProcessBuilder|<\%.*exec|eval\s*\(|system\s*\(|shell_exec)" \
+    "id:990104,\
+    phase:2,\
+    block,\
+    msg:'Web Shell Upload Attempt Detected',\
+    logdata:'Malicious pattern found in uploaded file',\
+    tag:'attack-webshell',\
+    severity:'CRITICAL'"
+```
+
+4. IIS에서 ModSecurity 활성화
+web.config 파일 생성(사이트 루트)
+```
+notepad "C:\inetpub\wwwroot\web.config"
+```
+
+web.config 파일 내용 (URL Rewrite 규칙포함)
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <system.webServer>
+        <!-- ModSecurity 모듈 등록 -->
+        <modules>
+            <add name="ModSecurityIIS" />
+        </modules>
+        
+        <!-- ModSecurity 설정 파일 경로 -->
+        <ModSecurity>
+            <configFile>C:\Program Files\ModSecurity IIS\modsecurity.conf</configFile>
+            <configFile>C:\Program Files\ModSecurity IIS\custom_sqli_rules.conf</configFile>
+            <configFile>C:\Program Files\ModSecurity IIS\custom_upload_rules.conf</configFile>
+        </ModSecurity>
+        
+        <!-- URL Rewrite 규칙 (Spring Boot 프록시용) -->
+        <rewrite>
+            <rules>
+                <rule name="Spring Boot Proxy" stopProcessing="true">
+                    <match url=".*" />
+                    <action type="Rewrite" url="http://localhost:8080/{R:0}" />
+                </rule>
+            </rules>
+        </rewrite>
+    </system.webServer>
+</configuration>
+```
+
+5. IIS 재시작
+```
+iisreset
+```
