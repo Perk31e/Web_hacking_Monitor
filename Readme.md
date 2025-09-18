@@ -291,6 +291,7 @@ New-Item -ItemType Directory -Force -Path "C:\inetpub\logs\ModSecurity"
 
 # IIS가 로그 디렉토리에 쓸 수 있도록 권한 부여
 ```
+icacls "C:\Windows\Temp" /grant "IIS_IUSRS:(OI)(CI)F"
 icacls "C:\inetpub\logs\ModSecurity" /grant "IIS_IUSRS:(OI)(CI)F"
 icacls "C:\inetpub\logs\ModSecurity" /grant "NETWORK SERVICE:(OI)(CI)F"
 ```
@@ -312,10 +313,21 @@ notepad custom_upload_rules.conf
 SecRuleEngine On
 SecRequestBodyAccess On
 SecResponseBodyAccess On
+
+# 임시 디렉토리 설정 (따옴표 필수!)
+SecTmpDir "C:\Windows\Temp"
+SecDataDir "C:\inetpub\logs\ModSecurity\data"
+
+# 기본 변수 초기화
+SecAction "id:900001,phase:1,nolog,pass,t:none,setvar:tx.critical_anomaly_score=5,setvar:tx.error_anomaly_score=4"
+
+# 요청 본문 처리
 SecRequestBodyLimit 13107200
 SecRequestBodyNoFilesLimit 131072
 SecRequestBodyInMemoryLimit 131072
 SecRequestBodyLimitAction Reject
+
+# PCRE 설정
 SecPcreMatchLimit 1000
 SecPcreMatchLimitRecursion 1000
 
@@ -324,8 +336,8 @@ SecAuditEngine RelevantOnly
 SecAuditLogRelevantStatus "^(?:5|4(?!04))"
 SecAuditLogParts ABDEFHIJZ
 SecAuditLogType Serial
-SecAuditLog C:\inetpub\logs\ModSecurity\modsec_audit.log
-SecDebugLog C:\inetpub\logs\ModSecurity\modsec_debug.log
+SecAuditLog "C:\inetpub\logs\ModSecurity\modsec_audit.log"
+SecDebugLog "C:\inetpub\logs\ModSecurity\modsec_debug.log"
 SecDebugLogLevel 3
 ```
 
