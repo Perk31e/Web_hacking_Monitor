@@ -289,6 +289,12 @@ Get-WebGlobalModule | Where-Object {$_.name -like "*mod*"}
 New-Item -ItemType Directory -Force -Path "C:\inetpub\logs\ModSecurity"
 ```
 
+# IIS가 로그 디렉토리에 쓸 수 있도록 권한 부여
+```
+icacls "C:\inetpub\logs\ModSecurity" /grant "IIS_IUSRS:(OI)(CI)F"
+icacls "C:\inetpub\logs\ModSecurity" /grant "NETWORK SERVICE:(OI)(CI)F"
+```
+
 *ModSecurity 설정 파일들을 ModSecurity 설치 디렉토리에 생성합니다.*
 ```
 cd "C:\Program Files\ModSecurity IIS"
@@ -300,7 +306,7 @@ notepad custom_upload_rules.conf
 ```
 
 
-*modsecurity.conf*
+*C:\Program Files\ModSecurity IIS\modsecurity.conf*
 ```
 # ModSecurity 기본 설정
 SecRuleEngine On
@@ -323,7 +329,7 @@ SecDebugLog C:\inetpub\logs\ModSecurity\modsec_debug.log
 SecDebugLogLevel 3
 ```
 
-*custom_sqli_rules.conf 내용*
+*C:\Program Files\ModSecurity IIS\custom_sqli_rules.conf 내용*
 ```
 # SQL Injection 탐지 규칙
 SecRule ARGS "@detectSQLi" \
@@ -359,8 +365,7 @@ SecRule ARGS "@rx (?i:(?:\W|^)(?:or|and)(?:\s+|\+)(?:\d+(?:\s*=\s*\d+)?|\w+(?:\s
     severity:'HIGH'"
 ```
 
-
-*custom_upload_rules.conf*
+*C:\Program Files\ModSecurity IIS\custom_upload_rules.conf*
 ```
 # 위험한 파일 확장자 업로드 차단
 SecRule FILES_NAMES "@rx \.(jsp|jspx|php|php3|php4|php5|phtml|asp|aspx|ascx|cfm|cfc|pl|bat|exe|dll|sh|py)$" \
@@ -437,7 +442,34 @@ web.config 파일 내용 (URL Rewrite 규칙포함)
 </configuration>
 ```
 
-5. IIS 재시작
+5. 설정 검증 단계 추가
+
+IIS 재시작 전에 설정 검증:
+```
+# IIS 설정 검증
+%windir%\system32\inetsrv\appcmd.exe list config -section:system.webServer/modules
+```
+
+6. IIS 재시작
 ```
 iisreset
+```
+
+7. 테스트 섹션 추가
+WAF가 정상 작동하는지 확인하는 테스트 방법
+```
+# SQL Injection 테스트
+curl "http://localhost/test?id=1' OR '1'='1"
+
+# 파일 업로드 테스트  
+# shell.jsp 파일 업로드 시도
+```
+
+8. 문제 해결 섹션
+```
+# 로그 실시간 모니터링
+Get-Content "C:\inetpub\logs\ModSecurity\modsec_audit.log" -Wait -Tail 10
+
+# ModSecurity 오류 확인
+Get-EventLog -LogName Application -Source "ModSecurity" -Newest 10
 ```
