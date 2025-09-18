@@ -91,7 +91,7 @@ chmod +x mvnw
 Navigate to the login page and test SQL injection:
 
 **Login Page** (`/login`)
-- **Email Field**: `admin@petcommunity.com' OR '1'='1' --`
+- **Email Field**: `admin@petcommunity.com' OR '1'='1' -- `
 - **Password Field**: `anything`
 
 Alternative payloads:
