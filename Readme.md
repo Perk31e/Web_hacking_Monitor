@@ -484,7 +484,13 @@ IIS 재시작 전에 설정 검증:
 iisreset
 ```
 
-7. 테스트 섹션 추가
+7. 제작한 웹페이지가 URL ReWrite를 통해 웹서버에 잘 전달되는지 테스트
+```
+curl http://localhost:8080/posts
+curl http://localhost:8080/login
+```
+
+8. 테스트 섹션 추가
 WAF가 정상 작동하는지 확인하는 테스트 방법
 ```
 # SQL Injection 테스트
@@ -494,7 +500,7 @@ curl "http://localhost/test?id=1' OR '1'='1"
 # shell.jsp 파일 업로드 시도
 ```
 
-8. 문제 해결 섹션
+9. 문제 해결 섹션
 ```
 # 로그 실시간 모니터링
 Get-Content "C:\inetpub\logs\ModSecurity\modsec_audit.log" -Wait -Tail 10
