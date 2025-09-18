@@ -429,22 +429,48 @@ web.config 파일 내용 (URL Rewrite 규칙포함)
             <configFile>C:\Program Files\ModSecurity IIS\custom_upload_rules.conf</configFile>
         </ModSecurity>
         
-        <!-- URL Rewrite 규칙 (Spring Boot 프록시용) -->
+        <!-- URL Rewrite 규칙 -->
         <rewrite>
             <rules>
                 <rule name="Spring Boot Proxy" stopProcessing="true">
-                    <match url=".*" />
-                    <action type="Rewrite" url="http://localhost:8080/{R:0}" />
+                    <match url="(.*)" />
+                    <conditions>
+                        <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
+                        <add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true" />
+                    </conditions>
+                    <action type="Rewrite" url="http://localhost:8080/{R:1}" />
+                    <serverVariables>
+                        <set name="HTTP_X_FORWARDED_FOR" value="{REMOTE_ADDR}" />
+                        <set name="HTTP_X_FORWARDED_HOST" value="{HTTP_HOST}" />
+                        <set name="HTTP_X_FORWARDED_PROTO" value="http" />
+                    </serverVariables>
                 </rule>
             </rules>
         </rewrite>
+        
+        <defaultDocument>
+            <files>
+                <clear />
+                <add value="index.html" />
+                <add value="default.html" />
+            </files>
+        </defaultDocument>
+        
+        <httpErrors errorMode="Detailed" />
     </system.webServer>
 </configuration>
 ```
 5. URL Rewrite 모듈 설치
-URL Rewrite 모듈이 없으면 다운로드하여 설치하에ㅛ:
+URL Rewrite 모듈이 없으면 다운로드하여 설치하세요:
 * Microsoft URL Rewrite 2.1
+```
+https://www.iis.net/downloads/microsoft/url-rewrite
+```
 
+6. ARR(Application Request Routing) 설치
+```
+https://www.iis.net/downloads/microsoft/application-request-routing
+```
 5. 설정 검증 단계 추가
 
 IIS 재시작 전에 설정 검증:
