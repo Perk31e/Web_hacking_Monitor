@@ -441,6 +441,9 @@ web.config 파일 내용 (URL Rewrite 규칙포함)
     </system.webServer>
 </configuration>
 ```
+5. URL Rewrite 모듈 설치
+URL Rewrite 모듈이 없으면 다운로드하여 설치하에ㅛ:
+* Microsoft URL Rewrite 2.1
 
 5. 설정 검증 단계 추가
 
